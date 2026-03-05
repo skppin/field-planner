@@ -1,134 +1,459 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
+<meta charset="UTF-8" />
 <title>Football Tactical Planner</title>
 
 <script src="html2canvas.min.js"></script>
 
 <style>
-body{
-  margin:0;
-  background:#1b1b1b;
-  font-family:Arial, sans-serif;
-  display:flex;
-  justify-content:center;
-  align-items:center;
-  height:100vh;
-}
-
-#controls{
-  position:absolute;
-  top:20px;
-}
-
-button{
-  padding:8px 16px;
-  font-size:15px;
-  border-radius:6px;
-  border:none;
-  cursor:pointer;
-  font-weight:bold;
-}
-
-#field{
-  position:relative;
-  width:900px;
-  height:500px;
-  background:url("field.jpg") no-repeat center;
-  background-size:contain;
-  border:3px solid white;
-}
-
-.player{
-  position:absolute;
-  width:42px;
-  height:42px;
-  border-radius:50%;
-  display:flex;
-  justify-content:center;
-  align-items:center;
-  font-weight:bold;
-  color:white;
-  border:3px solid white;
-  transform:translate(-50%,-50%);
-  cursor:grab;
-  user-select:none;
-  transition: box-shadow 0.2s ease;
-}
-
-.home{ background:#e53935; }
-.away{ background:#1e88e5; }
-
-.selected{
-  box-shadow:
-    0 0 0 4px #ffffff,
-    0 0 14px 6px #ffeb3b,
-    0 0 28px 12px rgba(255,235,59,0.7);
-  animation: pulseGlow 1.1s infinite alternate;
-}
-
-@keyframes pulseGlow{
-  from{
-    box-shadow:
-      0 0 0 4px #ffffff,
-      0 0 8px 4px #ffeb3b,
-      0 0 20px 8px rgba(255,235,59,0.5);
+  body{
+    margin:0;
+    background:#1b1b1b;
+    font-family:Arial, sans-serif;
+    display:flex;
+    justify-content:center;
+    align-items:center;
+    height:100vh;
   }
-  to{
-    box-shadow:
-      0 0 0 4px #ffffff,
-      0 0 18px 8px #ffeb3b,
-      0 0 34px 14px rgba(255,235,59,0.8);
-  }
-}
 
-svg{
-  position:absolute;
-  top:0;
-  left:0;
-  width:100%;
-  height:100%;
-}
+  /* ===== HEADER ===== */
+  #appHeader{
+    position:absolute;
+    top:0;
+    left:0;
+    right:0;
+    height:60px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    background:linear-gradient(to bottom, rgba(0,0,0,0.80), rgba(0,0,0,0.40));
+    backdrop-filter: blur(6px);
+    z-index:10000;
+  }
+  #appHeader h1{
+    margin:0;
+    font-size:22px;
+    font-weight:800;
+    letter-spacing:1px;
+    color:#ffffff;
+    text-transform:uppercase;
+  }
+
+  /* Buttons row */
+  #controls{
+    position:absolute;
+    top:75px; /* below header */
+    left:50%;
+    transform:translateX(-50%);
+    display:flex;
+    gap:10px;
+    align-items:center;
+    flex-wrap:wrap;
+    z-index:9999;
+  }
+
+  button{
+    width:56px;
+    height:44px;
+    border-radius:12px;
+    border:2px solid #555;
+    cursor:pointer;
+    background:#262626;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    padding:0;
+    user-select:none;
+    position:relative;
+    overflow:hidden;
+  }
+
+  button.toggle.active{
+    border-color:#fff;
+    box-shadow:0 0 0 3px rgba(255,255,255,0.22);
+  }
+
+  button.primary{
+    background:#f4f4f4;
+    border-color:#f4f4f4;
+  }
+
+  button.danger{
+    background:#c62828;
+    border-color:#8e1e1e;
+  }
+
+  .btn-icon{
+    width:34px;
+    height:22px;
+    display:block;
+    position:relative;
+    z-index:2;
+    pointer-events:none;
+  }
+
+  #field{
+    position:relative;
+    width:900px;
+    height:500px;
+    background:url("field.jpg") no-repeat center;
+    background-size:contain;
+    border:3px solid #fff;
+  }
+
+  svg{
+    position:absolute;
+    inset:0;
+    width:100%;
+    height:100%;
+    z-index:2;
+    touch-action:none;
+  }
+
+  .player{
+    position:absolute;
+    width:32px;
+    height:32px;
+    border-radius:50%;
+    display:flex;
+    justify-content:center;
+    align-items:center;
+    font-weight:bold;
+    color:white;
+    border:3px solid white;
+    transform:translate(-50%,-50%);
+    cursor:grab;
+    user-select:none;
+    font-size:13px;
+    z-index:5;
+  }
+  .home{ background:#e53935; }
+  .away{ background:#1e88e5; }
+
+  .selected-player{
+    box-shadow:
+      0 0 0 3px #ffffff,
+      0 0 12px 6px rgba(255,235,59,0.9),
+      0 0 24px 12px rgba(255,235,59,0.55);
+  }
+
+  .path-selected{
+    filter: drop-shadow(0 0 7px rgba(255,255,255,1));
+  }
+
+  .ball{
+    position:absolute;
+    width:28px;
+    height:28px;
+    transform:translate(-50%,-50%);
+    border-radius:50%;
+    background:#fff;
+    border:2px solid #111;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-size:18px;
+    cursor:grab;
+    user-select:none;
+    z-index:6;
+  }
+  .ball-selected{
+    box-shadow: 0 0 0 3px #fff, 0 0 14px 6px rgba(0,229,255,0.7);
+  }
+
+  /* Fixed Help Panel */
+  #helpPanel{
+    position:absolute;
+    left:0;
+    right:0;
+    bottom:0;
+    z-index:9999;
+    background:rgba(0,0,0,0.60);
+    backdrop-filter: blur(6px);
+    color:#fff;
+    padding:10px 16px;
+    font-size:13px;
+  }
+
+  #helpPanel .title{
+    font-weight:800;
+    margin-bottom:6px;
+    opacity:0.95;
+  }
+
+  #helpPanel ul{
+    margin:0;
+    padding-left:18px;
+    display:grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap:6px 22px;
+    list-style: disc;
+  }
+
+  #helpPanel li{
+    opacity:0.92;
+    line-height:1.25;
+  }
+
+  #helpPanel kbd{
+    font-family: Arial, sans-serif;
+    font-weight:800;
+    background:rgba(255,255,255,0.12);
+    border:1px solid rgba(255,255,255,0.25);
+    border-bottom-width:2px;
+    padding:2px 6px;
+    border-radius:6px;
+    margin:0 2px;
+    display:inline-block;
+  }
+
+  @media (max-width: 900px){
+    #helpPanel ul{ grid-template-columns: 1fr; }
+  }
 </style>
 </head>
+
 <body>
 
+<div id="appHeader">
+  <h1>Football Tactical Planner</h1>
+</div>
+
 <div id="controls">
-  <button id="exportBtn">📸 Export PNG</button>
+  <button id="exportBtn" class="primary toggle" title="Export PNG">
+    <svg class="btn-icon" viewBox="0 0 24 24">
+      <path d="M8 7l1.2-2h5.6L16 7h2.5A2.5 2.5 0 0 1 21 9.5v8A2.5 2.5 0 0 1 18.5 20h-13A2.5 2.5 0 0 1 3 17.5v-8A2.5 2.5 0 0 1 5.5 7H8z"
+            fill="none" stroke="#111" stroke-width="2" stroke-linejoin="round"/>
+      <circle cx="12" cy="13" r="3.2" fill="none" stroke="#111" stroke-width="2"/>
+    </svg>
+  </button>
+
+  <button id="toolArrow1" class="toggle active" title="Arrow Style 1">
+    <svg class="btn-icon" viewBox="0 0 44 24">
+      <line x1="4" y1="12" x2="32" y2="12" stroke="#FFD400" stroke-width="3.6" stroke-linecap="round"></line>
+      <polygon points="32,6 42,12 32,18" fill="#FFD400"></polygon>
+    </svg>
+  </button>
+
+  <button id="toolArrow2" class="toggle" title="Arrow Style 2">
+    <svg class="btn-icon" viewBox="0 0 44 24">
+      <line x1="4" y1="12" x2="32" y2="12" stroke="#FF2D55" stroke-width="3.6" stroke-linecap="round"></line>
+      <polygon points="32,6 42,12 32,18" fill="#FF2D55"></polygon>
+    </svg>
+  </button>
+
+  <button id="toolDotted" class="toggle" title="Dotted Arrow">
+    <svg class="btn-icon" viewBox="0 0 44 24">
+      <line x1="4" y1="12" x2="32" y2="12" stroke="#00E5FF" stroke-width="3.6"
+            stroke-dasharray="7 6" stroke-linecap="round"></line>
+      <polygon points="32,6 42,12 32,18" fill="#00E5FF"></polygon>
+    </svg>
+  </button>
+
+  <button id="toolBall" class="toggle" title="Place Ball (one time)">
+  <span style="font-size:22px; line-height:1;">⚽</span>
+</button>
+
+  <button id="toolFree" class="toggle" title="Free Draw (Pen)">
+    <svg class="btn-icon" viewBox="0 0 24 24">
+      <path d="M3 21l3.5-1 11-11-2.5-2.5-11 11L3 21z" fill="none" stroke="#fff" stroke-width="2" />
+      <path d="M14 6l2.5 2.5" fill="none" stroke="#fff" stroke-width="2" />
+    </svg>
+  </button>
+
+  <button id="deleteBtn" class="danger toggle" title="Delete Selected">
+    <svg class="btn-icon" viewBox="0 0 24 24">
+      <path d="M6 7h12M9 7V5h6v2m-8 3v9m4-9v9m4-9v9M7 7l1 14h8l1-14"
+            fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+  </button>
 </div>
 
 <div id="field">
-  <svg id="arrowLayer"></svg>
+  <svg id="drawLayer"></svg>
+</div>
+
+<div id="helpPanel">
+  <div class="title">Help / Controls</div>
+  <ul>
+    <li><b>Arrow tools:</b> Click a player, then another player to draw an arrow.</li>
+    <li><b>Dotted:</b> Same as arrow but dotted line.</li>
+    <li><b>Free Draw:</b> Turn on ✍️ then draw on field; release to add arrowhead.</li>
+    <li><b>Ball:</b> Click ⚽ then click field to place <b>one</b> ball (click ⚽ again for next ball).</li>
+    <li><b>Select:</b> Click any arrow / free-draw line / ball to highlight.</li>
+    <li><b>Delete:</b> Click 🗑 or press <kbd>Delete</kbd>/<kbd>Backspace</kbd> to remove selected.</li>
+    <li><b>Drag:</b> Drag players (and balls) to reposition.</li>
+    <li><b>Export:</b> Click 📸 to export your plan as PNG.</li>
+  </ul>
 </div>
 
 <script>
-const field = document.getElementById("field");
-const arrowLayer = document.getElementById("arrowLayer");
+const field     = document.getElementById("field");
+const drawLayer = document.getElementById("drawLayer");
+
 const exportBtn = document.getElementById("exportBtn");
+const deleteBtn = document.getElementById("deleteBtn");
+
+const btnArrow1 = document.getElementById("toolArrow1");
+const btnArrow2 = document.getElementById("toolArrow2");
+const btnDotted = document.getElementById("toolDotted");
+const btnBall   = document.getElementById("toolBall");
+const btnFree   = document.getElementById("toolFree");
 
 let selectedPlayer = null;
+/* selection can be: {type:'path', main, hit} OR {type:'ball', el} */
+let selectedItem = null;
 
-/* EXPORT WITH PLAN NAME */
-exportBtn.onclick = async () => {
+const STYLES = {
+  arrow1: { color:"#FFD400", dotted:false, marker:"arrowhead-arrow1" },
+  arrow2: { color:"#FF2D55", dotted:false, marker:"arrowhead-arrow2" },
+  dotted: { color:"#00E5FF", dotted:true,  marker:"arrowhead-dotted" }
+};
 
+let currentStyle = "arrow1";
+let freeDrawOn = false;
+let ballArmed = false; // single-use ball placement
+
+function refreshButtons(){
+  [btnArrow1, btnArrow2, btnDotted, btnBall, btnFree].forEach(b => b.classList.remove("active"));
+  if(currentStyle === "arrow1") btnArrow1.classList.add("active");
+  if(currentStyle === "arrow2") btnArrow2.classList.add("active");
+  if(currentStyle === "dotted") btnDotted.classList.add("active");
+  if(freeDrawOn) btnFree.classList.add("active");
+  if(ballArmed) btnBall.classList.add("active");
+}
+
+btnArrow1.onclick = ()=>{ currentStyle="arrow1"; ballArmed=false; refreshButtons(); };
+btnArrow2.onclick = ()=>{ currentStyle="arrow2"; ballArmed=false; refreshButtons(); };
+btnDotted.onclick = ()=>{ currentStyle="dotted"; ballArmed=false; refreshButtons(); };
+
+btnFree.onclick = ()=>{
+  freeDrawOn = !freeDrawOn;
+  ballArmed = false;
+  if(selectedPlayer){ selectedPlayer.classList.remove("selected-player"); selectedPlayer=null; }
+  refreshButtons();
+};
+
+btnBall.onclick = ()=>{
+  ballArmed = true;  // arm for ONE placement
+  if(selectedPlayer){ selectedPlayer.classList.remove("selected-player"); selectedPlayer=null; }
+  refreshButtons();
+};
+
+refreshButtons();
+
+/* Selection + Delete */
+function clearSelection(){
+  if(!selectedItem) return;
+  if(selectedItem.type === "path") selectedItem.main.classList.remove("path-selected");
+  if(selectedItem.type === "ball") selectedItem.el.classList.remove("ball-selected");
+  selectedItem = null;
+}
+function selectPath(group){
+  clearSelection();
+  selectedItem = { type:"path", ...group };
+  group.main.classList.add("path-selected");
+}
+function selectBall(el){
+  clearSelection();
+  selectedItem = { type:"ball", el };
+  el.classList.add("ball-selected");
+}
+function deleteSelected(){
+  if(!selectedItem) return;
+  if(selectedItem.type === "path"){
+    selectedItem.main.remove();
+    selectedItem.hit.remove();
+  }else if(selectedItem.type === "ball"){
+    selectedItem.el.remove();
+  }
+  selectedItem = null;
+}
+deleteBtn.onclick = deleteSelected;
+document.addEventListener("keydown", (e)=>{
+  if(e.key === "Delete" || e.key === "Backspace") deleteSelected();
+});
+
+/* Export */
+exportBtn.onclick = async ()=>{
   let planName = prompt("Enter Play Name:");
-
   if(planName === null) return;
-
   planName = planName.trim().replace(/[\\/:*?"<>|]/g, "");
-
   if(planName === "") planName = "formation";
 
+  clearSelection();
   const canvas = await html2canvas(field, { scale:3 });
-
   const link = document.createElement("a");
   link.download = planName + ".png";
   link.href = canvas.toDataURL();
   link.click();
 };
 
-/* CREATE PLAYER */
+/* Helpers */
+function getFieldRect(){ return field.getBoundingClientRect(); }
+
+function getPointFromPlayer(p){
+  const r = getFieldRect();
+  return { x: p.dataset.nx * r.width, y: p.dataset.ny * r.height };
+}
+
+function shortenLine(x1,y1,x2,y2, startOffsetPx, endOffsetPx){
+  const dx = x2 - x1, dy = y2 - y1;
+  const len = Math.hypot(dx,dy) || 1;
+  const ux = dx/len, uy = dy/len;
+  return {
+    x1: x1 + ux*startOffsetPx,
+    y1: y1 + uy*startOffsetPx,
+    x2: x2 - ux*endOffsetPx,
+    y2: y2 - uy*endOffsetPx
+  };
+}
+
+function getFieldLocalPoint(e){
+  const r = getFieldRect();
+  return { x: e.clientX - r.left, y: e.clientY - r.top };
+}
+
+function dist(a,b){
+  const dx=a.x-b.x, dy=a.y-b.y;
+  return Math.hypot(dx,dy);
+}
+
+function pointsToPathD(points){
+  if(points.length < 2) return "";
+  let d = `M ${points[0].x} ${points[0].y}`;
+  for(let i=1;i<points.length;i++) d += ` L ${points[i].x} ${points[i].y}`;
+  return d;
+}
+
+/* Hit targets (BIGGER click area for arrows) */
+function makeHitLine(x1,y1,x2,y2){
+  const hit = document.createElementNS("http://www.w3.org/2000/svg","line");
+  hit.setAttribute("x1", x1);
+  hit.setAttribute("y1", y1);
+  hit.setAttribute("x2", x2);
+  hit.setAttribute("y2", y2);
+  hit.setAttribute("stroke", "#000");
+  hit.setAttribute("stroke-opacity", "0");
+  hit.setAttribute("stroke-width","50");  // bigger selection area
+  hit.setAttribute("pointer-events","stroke");
+  hit.style.cursor="pointer";
+  return hit;
+}
+function makeHitPath(d){
+  const hit = document.createElementNS("http://www.w3.org/2000/svg","path");
+  hit.setAttribute("d", d);
+  hit.setAttribute("fill","none");
+  hit.setAttribute("stroke","#000");
+  hit.setAttribute("stroke-opacity","0");
+  hit.setAttribute("stroke-width","50");  // bigger selection area
+  hit.setAttribute("pointer-events","stroke");
+  hit.style.cursor="pointer";
+  return hit;
+}
+
+/* Players */
 function createPlayer(id, team, nx, ny){
   const p = document.createElement("div");
   p.className = "player " + team;
@@ -144,121 +469,259 @@ function createPlayer(id, team, nx, ny){
   let moved=false;
 
   p.addEventListener("mousedown", ()=>{
-    dragging=true;
-    moved=false;
+    dragging=true; moved=false;
   });
 
   document.addEventListener("mouseup", ()=> dragging=false);
 
   document.addEventListener("mousemove", e=>{
     if(!dragging) return;
-
     moved=true;
 
-    const rect=field.getBoundingClientRect();
-    let x=e.clientX-rect.left;
-    let y=e.clientY-rect.top;
+    const rect = getFieldRect();
+    let x = e.clientX - rect.left;
+    let y = e.clientY - rect.top;
 
-    x=Math.max(0,Math.min(rect.width,x));
-    y=Math.max(0,Math.min(rect.height,y));
+    x = Math.max(0, Math.min(rect.width, x));
+    y = Math.max(0, Math.min(rect.height, y));
 
-    p.dataset.nx=x/rect.width;
-    p.dataset.ny=y/rect.height;
+    p.dataset.nx = x / rect.width;
+    p.dataset.ny = y / rect.height;
 
     positionPlayer(p);
   });
 
   p.addEventListener("click", ()=>{
-
     if(moved) return;
+    if(freeDrawOn || ballArmed) return;
 
     if(!selectedPlayer){
-      selectedPlayer=p;
-      p.classList.add("selected");
+      selectedPlayer = p;
+      p.classList.add("selected-player");
       return;
     }
 
-    if(selectedPlayer===p){
-      selectedPlayer.classList.remove("selected");
-      selectedPlayer=null;
+    if(selectedPlayer === p){
+      selectedPlayer.classList.remove("selected-player");
+      selectedPlayer = null;
       return;
     }
 
-    drawArrow(selectedPlayer,p);
-    selectedPlayer.classList.remove("selected");
-    selectedPlayer=null;
+    drawArrowBetweenPlayers(selectedPlayer, p, currentStyle);
+
+    selectedPlayer.classList.remove("selected-player");
+    selectedPlayer = null;
   });
 }
 
 function positionPlayer(p){
-  const rect=field.getBoundingClientRect();
-  p.style.left=p.dataset.nx*rect.width+"px";
-  p.style.top=p.dataset.ny*rect.height+"px";
+  const rect = getFieldRect();
+  p.style.left = (p.dataset.nx * rect.width) + "px";
+  p.style.top  = (p.dataset.ny * rect.height) + "px";
 }
 
-function drawArrow(p1,p2){
-  const r=field.getBoundingClientRect();
+/* Draw arrow between players */
+function drawArrowBetweenPlayers(p1,p2, styleKey){
+  const style = STYLES[styleKey];
+  const a = getPointFromPlayer(p1);
+  const b = getPointFromPlayer(p2);
 
-  const x1=p1.dataset.nx*r.width;
-  const y1=p1.dataset.ny*r.height;
-  const x2=p2.dataset.nx*r.width;
-  const y2=p2.dataset.ny*r.height;
+  const startOffset = 19;
+  const endOffset   = 26;
 
-  const line=document.createElementNS("http://www.w3.org/2000/svg","line");
-  line.setAttribute("x1",x1);
-  line.setAttribute("y1",y1);
-  line.setAttribute("x2",x2);
-  line.setAttribute("y2",y2);
-  line.setAttribute("stroke","yellow");
-  line.setAttribute("stroke-width","4");
-  line.setAttribute("marker-end","url(#arrowhead)");
+  const pts = shortenLine(a.x,a.y,b.x,b.y, startOffset, endOffset);
 
-  const hit=document.createElementNS("http://www.w3.org/2000/svg","line");
-  hit.setAttribute("x1",x1);
-  hit.setAttribute("y1",y1);
-  hit.setAttribute("x2",x2);
-  hit.setAttribute("y2",y2);
-  hit.setAttribute("stroke","transparent");
-  hit.setAttribute("stroke-width","22");
-  hit.style.cursor="pointer";
+  const main = document.createElementNS("http://www.w3.org/2000/svg","line");
+  main.setAttribute("x1", pts.x1);
+  main.setAttribute("y1", pts.y1);
+  main.setAttribute("x2", pts.x2);
+  main.setAttribute("y2", pts.y2);
+  main.setAttribute("stroke", style.color);
+  main.setAttribute("stroke-width", "4.2");
+  main.setAttribute("marker-end", `url(#${style.marker})`);
 
-  hit.addEventListener("click",()=>{
-    line.remove();
-    hit.remove();
+  if(style.dotted){
+    main.setAttribute("stroke-dasharray", "8 7");
+    main.setAttribute("stroke-linecap","round");
+  }
+
+  const hit = makeHitLine(pts.x1, pts.y1, pts.x2, pts.y2);
+  const group = { main, hit };
+  hit.addEventListener("click", (e)=>{ e.stopPropagation(); selectPath(group); });
+
+  drawLayer.appendChild(hit);
+  drawLayer.appendChild(main);
+}
+
+/* Free draw arrows */
+let drawing=false;
+let drawPoints=[];
+let tempPath=null;
+let activePointerId=null;
+
+drawLayer.addEventListener("pointerdown", (e)=>{
+  if(!freeDrawOn) return;
+  if(e.target.closest && (e.target.closest(".player") || e.target.closest("#controls"))) return;
+
+  drawing=true;
+  activePointerId = e.pointerId;
+  drawLayer.setPointerCapture(activePointerId);
+
+  drawPoints = [ getFieldLocalPoint(e) ];
+
+  const style = STYLES[currentStyle];
+
+  tempPath = document.createElementNS("http://www.w3.org/2000/svg","path");
+  tempPath.setAttribute("fill","none");
+  tempPath.setAttribute("stroke", style.color);
+  tempPath.setAttribute("stroke-width","4.2");
+  tempPath.setAttribute("stroke-linecap","round");
+  tempPath.setAttribute("stroke-linejoin","round");
+  if(style.dotted) tempPath.setAttribute("stroke-dasharray","8 7");
+
+  tempPath.setAttribute("d", pointsToPathD(drawPoints));
+  drawLayer.appendChild(tempPath);
+});
+
+drawLayer.addEventListener("pointermove", (e)=>{
+  if(!drawing) return;
+  if(e.pointerId !== activePointerId) return;
+
+  const p = getFieldLocalPoint(e);
+  if(dist(drawPoints[drawPoints.length-1], p) >= 3){
+    drawPoints.push(p);
+    tempPath.setAttribute("d", pointsToPathD(drawPoints));
+  }
+});
+
+function endFreeDraw(e){
+  if(!drawing) return;
+  if(e.pointerId !== activePointerId) return;
+
+  drawing=false;
+  drawLayer.releasePointerCapture(activePointerId);
+  activePointerId=null;
+
+  if(!tempPath || drawPoints.length < 2){
+    tempPath?.remove();
+    tempPath=null;
+    drawPoints=[];
+    return;
+  }
+
+  const style = STYLES[currentStyle];
+  const d = tempPath.getAttribute("d");
+
+  tempPath.setAttribute("marker-end", `url(#${style.marker})`);
+
+  const hit = makeHitPath(d);
+  drawLayer.insertBefore(hit, tempPath);
+
+  const group = { main: tempPath, hit };
+  hit.addEventListener("click", (ev)=>{ ev.stopPropagation(); selectPath(group); });
+
+  tempPath=null;
+  drawPoints=[];
+}
+drawLayer.addEventListener("pointerup", endFreeDraw);
+drawLayer.addEventListener("pointercancel", endFreeDraw);
+
+/* Ball placement tool (single use) */
+function createBall(nx, ny){
+  const b = document.createElement("div");
+  b.className = "ball";
+  b.textContent = "⚽";
+  b.dataset.nx = nx;
+  b.dataset.ny = ny;
+
+  field.appendChild(b);
+  positionBall(b);
+
+  b.addEventListener("click", (e)=>{ e.stopPropagation(); selectBall(b); });
+
+  // drag ball
+  let dragging=false;
+  let moved=false;
+  b.addEventListener("mousedown", ()=>{ dragging=true; moved=false; });
+  document.addEventListener("mouseup", ()=> dragging=false);
+  document.addEventListener("mousemove", (e)=>{
+    if(!dragging) return;
+    moved=true;
+
+    const rect = getFieldRect();
+    let x = e.clientX - rect.left;
+    let y = e.clientY - rect.top;
+
+    x = Math.max(0, Math.min(rect.width, x));
+    y = Math.max(0, Math.min(rect.height, y));
+
+    b.dataset.nx = x / rect.width;
+    b.dataset.ny = y / rect.height;
+    positionBall(b);
   });
 
-  arrowLayer.appendChild(hit);
-  arrowLayer.appendChild(line);
+  b.addEventListener("click", ()=>{ if(moved) return; });
 }
 
-/* arrow head */
-const defs=document.createElementNS("http://www.w3.org/2000/svg","defs");
-defs.innerHTML=`
-<marker id="arrowhead" markerWidth="10" markerHeight="7"
- refX="10" refY="3.5" orient="auto">
- <polygon points="0 0, 10 3.5, 0 7" fill="yellow"/>
-</marker>`;
-arrowLayer.appendChild(defs);
+function positionBall(b){
+  const rect = getFieldRect();
+  b.style.left = (b.dataset.nx * rect.width) + "px";
+  b.style.top  = (b.dataset.ny * rect.height) + "px";
+}
 
-/* PLACE PLAYERS LEFT & RIGHT */
+field.addEventListener("click", (e)=>{
+  if(!ballArmed) return;
+  if(e.target.closest && (e.target.closest("#controls") || e.target.closest(".player"))) return;
+  if(e.target.closest && e.target.closest(".ball")) return;
+
+  const rect = getFieldRect();
+  const x = e.clientX - rect.left;
+  const y = e.clientY - rect.top;
+
+  createBall(x / rect.width, y / rect.height);
+
+  // auto off after one placement
+  ballArmed = false;
+  refreshButtons();
+});
+
+/* SVG defs arrowheads */
+const defs = document.createElementNS("http://www.w3.org/2000/svg","defs");
+defs.innerHTML = `
+  <marker id="arrowhead-arrow1" markerWidth="5" markerHeight="4"
+          refX="4.8" refY="2" orient="auto" markerUnits="strokeWidth">
+    <polygon points="0 0, 5 2, 0 4" fill="${STYLES.arrow1.color}"></polygon>
+  </marker>
+
+  <marker id="arrowhead-arrow2" markerWidth="5" markerHeight="4"
+          refX="4.8" refY="2" orient="auto" markerUnits="strokeWidth">
+    <polygon points="0 0, 5 2, 0 4" fill="${STYLES.arrow2.color}"></polygon>
+  </marker>
+
+  <marker id="arrowhead-dotted" markerWidth="5" markerHeight="4"
+          refX="4.8" refY="2" orient="auto" markerUnits="strokeWidth">
+    <polygon points="0 0, 5 2, 0 4" fill="${STYLES.dotted.color}"></polygon>
+  </marker>
+`;
+drawLayer.appendChild(defs);
+
+/* Place players */
 function placePlayersBottomSides(){
   const bottomY=0.92;
   const leftStart=0.06;
   const rightStart=0.56;
   const spacing=0.04;
 
-  for(let i=0;i<11;i++)
-    createPlayer(i+1,"home",leftStart+i*spacing,bottomY);
-
-  for(let i=0;i<11;i++)
-    createPlayer(i+1,"away",rightStart+i*spacing,bottomY);
+  for(let i=0;i<11;i++) createPlayer(i+1,"home",leftStart+i*spacing,bottomY);
+  for(let i=0;i<11;i++) createPlayer(i+1,"away",rightStart+i*spacing,bottomY);
 }
-
 placePlayersBottomSides();
 
 window.addEventListener("resize", ()=>{
   document.querySelectorAll(".player").forEach(positionPlayer);
+  document.querySelectorAll(".ball").forEach(positionBall);
 });
 </script>
+
 </body>
 </html>
