@@ -229,6 +229,26 @@
     </svg>
   </button>
 
+  <!-- Save Template -->
+  <button id="saveTplBtn" class="primary toggle" title="Save Template (JSON)">
+    <svg class="btn-icon" viewBox="0 0 24 24">
+      <path d="M5 4h12l2 2v14H5V4z" fill="none" stroke="#111" stroke-width="2" stroke-linejoin="round"/>
+      <path d="M8 4v6h8V4" fill="none" stroke="#111" stroke-width="2" stroke-linejoin="round"/>
+      <path d="M8 20v-6h8v6" fill="none" stroke="#111" stroke-width="2" stroke-linejoin="round"/>
+    </svg>
+  </button>
+
+  <!-- Load Template -->
+  <button id="loadTplBtn" class="primary toggle" title="Load Template (JSON)">
+    <svg class="btn-icon" viewBox="0 0 24 24">
+      <path d="M12 3v10" fill="none" stroke="#111" stroke-width="2" stroke-linecap="round"/>
+      <path d="M8 9l4 4 4-4" fill="none" stroke="#111" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M4 17v3h16v-3" fill="none" stroke="#111" stroke-width="2" stroke-linecap="round"/>
+    </svg>
+  </button>
+
+  <input id="tplFileInput" type="file" accept="application/json" style="display:none;" />
+
   <button id="toolArrow1" class="toggle active" title="Arrow Style 1">
     <svg class="btn-icon" viewBox="0 0 44 24">
       <line x1="4" y1="12" x2="32" y2="12" stroke="#FFD400" stroke-width="3.6" stroke-linecap="round"></line>
@@ -251,9 +271,10 @@
     </svg>
   </button>
 
+  <!-- Ball button icon changed to FOOTBALL EMOJI only -->
   <button id="toolBall" class="toggle" title="Place Ball (one time)">
-  <span style="font-size:22px; line-height:1;">⚽</span>
-</button>
+    <span style="font-size:22px; line-height:1; pointer-events:none;">⚽</span>
+  </button>
 
   <button id="toolFree" class="toggle" title="Free Draw (Pen)">
     <svg class="btn-icon" viewBox="0 0 24 24">
@@ -285,6 +306,7 @@
     <li><b>Delete:</b> Click 🗑 or press <kbd>Delete</kbd>/<kbd>Backspace</kbd> to remove selected.</li>
     <li><b>Drag:</b> Drag players (and balls) to reposition.</li>
     <li><b>Export:</b> Click 📸 to export your plan as PNG.</li>
+    <li><b>Templates:</b> Save 💾 / Load ⬇️ to reuse formations and drawings.</li>
   </ul>
 </div>
 
@@ -300,6 +322,10 @@ const btnArrow2 = document.getElementById("toolArrow2");
 const btnDotted = document.getElementById("toolDotted");
 const btnBall   = document.getElementById("toolBall");
 const btnFree   = document.getElementById("toolFree");
+
+const saveTplBtn   = document.getElementById("saveTplBtn");
+const loadTplBtn   = document.getElementById("loadTplBtn");
+const tplFileInput = document.getElementById("tplFileInput");
 
 let selectedPlayer = null;
 /* selection can be: {type:'path', main, hit} OR {type:'ball', el} */
@@ -377,7 +403,7 @@ document.addEventListener("keydown", (e)=>{
 
 /* Export */
 exportBtn.onclick = async ()=>{
-  let planName = prompt("Enter Sequence Id/Name:");
+  let planName = prompt("Enter Sequence ID/Name:");
   if(planName === null) return;
   planName = planName.trim().replace(/[\\/:*?"<>|]/g, "");
   if(planName === "") planName = "formation";
@@ -545,6 +571,10 @@ function drawArrowBetweenPlayers(p1,p2, styleKey){
     main.setAttribute("stroke-linecap","round");
   }
 
+  // template tagging
+  main.dataset.tplType = "line";
+  main.dataset.tplStyle = styleKey;
+
   const hit = makeHitLine(pts.x1, pts.y1, pts.x2, pts.y2);
   const group = { main, hit };
   hit.addEventListener("click", (e)=>{ e.stopPropagation(); selectPath(group); });
@@ -612,8 +642,17 @@ function endFreeDraw(e){
   const style = STYLES[currentStyle];
   const d = tempPath.getAttribute("d");
 
+  // add arrow head
   tempPath.setAttribute("marker-end", `url(#${style.marker})`);
 
+  // template tagging: store normalized points
+  const rect = getFieldRect();
+  const normPoints = drawPoints.map(p => ({ x: p.x / rect.width, y: p.y / rect.height }));
+  tempPath.dataset.tplType = "path";
+  tempPath.dataset.tplStyle = currentStyle;
+  tempPath.dataset.tplPoints = JSON.stringify(normPoints);
+
+  // hit path: IMPORTANT - tempPath is already inside drawLayer
   const hit = makeHitPath(d);
   drawLayer.insertBefore(hit, tempPath);
 
@@ -720,8 +759,310 @@ placePlayersBottomSides();
 window.addEventListener("resize", ()=>{
   document.querySelectorAll(".player").forEach(positionPlayer);
   document.querySelectorAll(".ball").forEach(positionBall);
+
+  // redraw arrows from their stored normalized state on resize
+  // (keeps templates consistent across sizes)
+  rerenderTemplateArrowsOnResize();
 });
-</script>
+
+/* =========================
+   TEMPLATE SAVE / LOAD (JSON)
+   Saves: players, balls, arrows (line + free draw) + styles
+   ========================= */
+
+/* =========================
+   TEMPLATE SAVE / LOAD (ROBUST)
+   Saves: players, balls, arrows (line + free draw) + styles
+   Captures dotted even without dataset tags
+   ========================= */
+
+function downloadJSON(obj, filename){
+  const blob = new Blob([JSON.stringify(obj, null, 2)], { type:"application/json" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function detectStyleFromElement(el){
+  // Prefer explicit saved style
+  const ds = el.dataset && el.dataset.tplStyle;
+  if(ds) return ds;
+
+  // Otherwise infer from dasharray + stroke color
+  const dash = el.getAttribute("stroke-dasharray");
+  if(dash && dash.trim() !== "") return "dotted";
+
+  const stroke = (el.getAttribute("stroke") || "").toLowerCase();
+  if(stroke === STYLES.arrow2.color.toLowerCase()) return "arrow2";
+  return "arrow1";
+}
+
+function getAllPlayersState(){
+  return Array.from(document.querySelectorAll(".player")).map(p => ({
+    id: Number(p.innerText.trim()),
+    team: p.classList.contains("home") ? "home" : "away",
+    nx: Number(p.dataset.nx),
+    ny: Number(p.dataset.ny)
+  }));
+}
+
+function getAllBallsState(){
+  return Array.from(document.querySelectorAll(".ball")).map(b => ({
+    nx: Number(b.dataset.nx),
+    ny: Number(b.dataset.ny)
+  }));
+}
+
+function parsePathDToPoints(d){
+  // Very simple parser: extracts numeric pairs from "M x y L x y ..."
+  // Works for your generated free draw (only M/L), which is what you create.
+  const nums = (d.match(/-?\d+(\.\d+)?/g) || []).map(Number);
+  const points = [];
+  for(let i=0;i<nums.length-1;i+=2){
+    points.push({ x: nums[i], y: nums[i+1] });
+  }
+  return points;
+}
+
+function getAllArrowsState(){
+  const rect = getFieldRect();
+  const arrows = [];
+
+  // --- Straight arrows: capture real arrow lines only (must have marker-end)
+  drawLayer.querySelectorAll("line").forEach(line => {
+    const marker = line.getAttribute("marker-end");
+    if(!marker) return; // skip hit-lines
+
+    const x1 = Number(line.getAttribute("x1")) / rect.width;
+    const y1 = Number(line.getAttribute("y1")) / rect.height;
+    const x2 = Number(line.getAttribute("x2")) / rect.width;
+    const y2 = Number(line.getAttribute("y2")) / rect.height;
+
+    arrows.push({
+      type: "line",
+      style: detectStyleFromElement(line),
+      x1, y1, x2, y2
+    });
+  });
+
+  // --- Free draw arrows: capture real arrow paths only (must have marker-end)
+  drawLayer.querySelectorAll("path").forEach(path => {
+    const marker = path.getAttribute("marker-end");
+    if(!marker) return; // skip hit-paths
+
+    const style = detectStyleFromElement(path);
+
+    // best: normalized points already stored
+    let points = null;
+    if(path.dataset && path.dataset.tplPoints){
+      try { points = JSON.parse(path.dataset.tplPoints); } catch(e){ points = null; }
+    }
+
+    // fallback: derive from d if dataset missing
+    const d = path.getAttribute("d") || "";
+    if(!points){
+      const pxPoints = parsePathDToPoints(d);
+      points = pxPoints.map(p => ({ x: p.x / rect.width, y: p.y / rect.height }));
+    }
+
+    arrows.push({
+      type: "path",
+      style,
+      points
+    });
+  });
+
+  return arrows;
+}
+
+function buildTemplate(){
+  return {
+    version: 2,
+    createdAt: new Date().toISOString(),
+    players: getAllPlayersState(),
+    balls: getAllBallsState(),
+    arrows: getAllArrowsState()
+  };
+}
+
+function clearAllBalls(){
+  document.querySelectorAll(".ball").forEach(b => b.remove());
+}
+
+function clearAllArrows(){
+  const defsKeep = drawLayer.querySelector("defs");
+  // remove all lines/paths except defs
+  drawLayer.querySelectorAll("line, path").forEach(el => el.remove());
+  if(defsKeep) drawLayer.appendChild(defsKeep);
+  clearSelection();
+}
+
+function applyPlayersState(players){
+  const map = new Map();
+  document.querySelectorAll(".player").forEach(p => {
+    const team = p.classList.contains("home") ? "home" : "away";
+    const id = Number(p.innerText.trim());
+    map.set(`${team}-${id}`, p);
+  });
+
+  players.forEach(ps => {
+    const p = map.get(`${ps.team}-${ps.id}`);
+    if(!p) return;
+    p.dataset.nx = ps.nx;
+    p.dataset.ny = ps.ny;
+    positionPlayer(p);
+  });
+}
+
+function createLineArrowByNorm(x1n,y1n,x2n,y2n, styleKey){
+  const style = STYLES[styleKey] || STYLES.arrow1;
+  const rect = getFieldRect();
+
+  const x1 = x1n * rect.width;
+  const y1 = y1n * rect.height;
+  const x2 = x2n * rect.width;
+  const y2 = y2n * rect.height;
+
+  const main = document.createElementNS("http://www.w3.org/2000/svg","line");
+  main.setAttribute("x1", x1);
+  main.setAttribute("y1", y1);
+  main.setAttribute("x2", x2);
+  main.setAttribute("y2", y2);
+  main.setAttribute("stroke", style.color);
+  main.setAttribute("stroke-width", "4.2");
+  main.setAttribute("marker-end", `url(#${style.marker})`);
+
+  if(style.dotted){
+    main.setAttribute("stroke-dasharray", "8 7");
+    main.setAttribute("stroke-linecap","round");
+  }
+
+  // tag (optional but nice)
+  main.dataset.tplStyle = styleKey;
+
+  const hit = makeHitLine(x1, y1, x2, y2);
+  const group = { main, hit };
+  hit.addEventListener("click", (e)=>{ e.stopPropagation(); selectPath(group); });
+
+  drawLayer.appendChild(hit);
+  drawLayer.appendChild(main);
+}
+
+function createFreePathByNorm(pointsNorm, styleKey){
+  const style = STYLES[styleKey] || STYLES.arrow1;
+  const rect = getFieldRect();
+
+  const pointsPx = (pointsNorm || []).map(pt => ({
+    x: pt.x * rect.width,
+    y: pt.y * rect.height
+  }));
+  if(pointsPx.length < 2) return;
+
+  const d = pointsToPathD(pointsPx);
+
+  const main = document.createElementNS("http://www.w3.org/2000/svg","path");
+  main.setAttribute("d", d);
+  main.setAttribute("fill","none");
+  main.setAttribute("stroke", style.color);
+  main.setAttribute("stroke-width","4.2");
+  main.setAttribute("stroke-linecap","round");
+  main.setAttribute("stroke-linejoin","round");
+  if(style.dotted) main.setAttribute("stroke-dasharray","8 7");
+  main.setAttribute("marker-end", `url(#${style.marker})`);
+
+  // tag for future saves
+  main.dataset.tplType = "path";
+  main.dataset.tplStyle = styleKey;
+  main.dataset.tplPoints = JSON.stringify(pointsNorm || []);
+
+  // ✅ IMPORTANT ORDER:
+  drawLayer.appendChild(main);          // 1) append main first
+  const hit = makeHitPath(d);
+  drawLayer.insertBefore(hit, main);    // 2) now main is a child, safe
+
+  const group = { main, hit };
+  hit.addEventListener("click", (ev)=>{ ev.stopPropagation(); selectPath(group); });
+}
+function applyTemplate(tpl){
+  if(!tpl || !tpl.players || !tpl.balls || !tpl.arrows) {
+    alert("Invalid template file.");
+    return;
+  }
+
+  clearAllBalls();
+  clearAllArrows();
+
+  applyPlayersState(tpl.players);
+  tpl.balls.forEach(b => createBall(b.nx, b.ny));
+
+  tpl.arrows.forEach(a => {
+    if(a.type === "line"){
+      createLineArrowByNorm(a.x1, a.y1, a.x2, a.y2, a.style);
+      return;
+    }
+    if(a.type === "path"){
+      // Prefer normalized points
+      if(Array.isArray(a.points) && a.points.length >= 2){
+        createFreePathByNorm(a.points, a.style);
+        return;
+      }
+
+      // Fallback: scale raw d based on baseW/baseH
+      if(a.d && a.baseW && a.baseH){
+        const rect = getFieldRect();
+        const sx = rect.width / a.baseW;
+        const sy = rect.height / a.baseH;
+        const pxPoints = parsePathDToPoints(a.d);
+        const norm = pxPoints.map(p => ({ x: (p.x * sx) / rect.width, y: (p.y * sy) / rect.height }));
+        createFreePathByNorm(norm, a.style);
+      }
+    }
+  });
+
+  refreshButtons();
+}
+
+/* Hook up buttons */
+saveTplBtn.onclick = () => {
+  // Ask for a template name — if the user cancels (null) we do nothing.
+  let name = prompt("Template name?");
+  if (name === null) return;            // user pressed Cancel -> do not save
+
+  name = name.trim();
+  if (name === "") name = "template";  // empty -> fallback name
+
+  // sanitize filename
+  name = name.replace(/[\\/:*?"<>|]/g, "");
+
+  clearSelection();
+  const tpl = buildTemplate();
+  downloadJSON(tpl, name + ".json");
+};
+
+loadTplBtn.onclick = ()=> tplFileInput.click();
+
+tplFileInput.addEventListener("change", async (e)=>{
+  const file = e.target.files && e.target.files[0];
+  if(!file) return;
+
+  try{
+    let text = await file.text();
+
+    // ✅ BOM + whitespace fix (very common cause of “invalid JSON”)
+    text = text.replace(/^\uFEFF/, "").trim();
+
+    const tpl = JSON.parse(text);
+    applyTemplate(tpl);
+  }catch(err){
+    // show the REAL error so you can debug quickly
+    alert("Template load failed: " + (err && err.message ? err.message : err));
+  }finally{
+    tplFileInput.value = "";
+  }
+});</script>
 
 </body>
 </html>
