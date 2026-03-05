@@ -377,7 +377,7 @@ document.addEventListener("keydown", (e)=>{
 
 /* Export */
 exportBtn.onclick = async ()=>{
-  let planName = prompt("Enter Play Name:");
+  let planName = prompt("Enter Sequence Id/Name:");
   if(planName === null) return;
   planName = planName.trim().replace(/[\\/:*?"<>|]/g, "");
   if(planName === "") planName = "formation";
